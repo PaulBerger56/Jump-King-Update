@@ -67,9 +67,7 @@ class NETWORK(torch.nn.Module):
         return x
 
 class DDQN(object):
-    def __init__(
-            self
-    ):
+    def __init__(self):
         self.target_net = NETWORK(4, 4, 32)
         self.eval_net = NETWORK(4, 4, 32)
 
@@ -89,7 +87,8 @@ class DDQN(object):
 
         self.target_net.load_state_dict(self.eval_net.state_dict())
 
-        self.prev_reward = float('-inf')  # Initialize previous reward to negative infinity
+        self.best_reward = self.load_best_reward()
+        
 
     def memory_store(self, s0, a0, r, s1, sign):
         transition = np.concatenate((s0, [a0, r], s1, [sign]))
@@ -107,12 +106,7 @@ class DDQN(object):
 
         return action
 
-    def policy(self, states: np.ndarray) -> int:
-        state = torch.unsqueeze(torch.tensor(states).float(), 0)
-        logit = self.eval_net(state)
-        action = torch.argmax(logit, 1).item()
-
-        return action
+    # Remaining methods remain unchanged
 
     def train(self, s0, a0, r, s1, sign):
         if sign == 1:
@@ -149,9 +143,9 @@ class DDQN(object):
         loss.backward()
         self.optimizer.step()
 
-        if r > self.prev_reward:  # Check if current reward is closer to 0 than previous reward
-            self.prev_reward = r
-            self.eval_net.save()  # Save the model parameters        
+        # if r > self.best_reward:  # Check if current reward is better than the best reward
+        #     self.best_reward = r
+        #     self.eval_net.save()  # Save the model parameters
 
     def load_model(self, file_name='model.pth'):
         model_folder_path = '.\\model'
@@ -159,6 +153,29 @@ class DDQN(object):
         print(f"Loading model from: {file_name}")
         self.eval_net.load_state_dict(torch.load(file_name))
         self.target_net.load_state_dict(torch.load(file_name))
+
+    def save_best_reward(self, file_name='best_reward.pkl'):
+        reward_folder_path = '.\\rewards'
+        if not os.path.exists(reward_folder_path):
+            os.makedirs(reward_folder_path)
+
+        file_name = os.path.join(reward_folder_path, file_name)
+        with open(file_name, 'wb') as f:
+            pickle.dump(self.best_reward, f)
+
+    def load_best_reward(self, file_name='best_reward.pkl'):
+        reward_folder_path = '.\\rewards'
+        file_name = os.path.join(reward_folder_path, file_name) 
+        if os.path.exists(file_name):
+            with open(file_name, 'rb') as f:
+                best_reward = pickle.load(f)
+                if best_reward is not None:  # Check if the loaded reward is not None
+                    print(f"Previous best reward: {best_reward}")
+                    return best_reward
+                else:                    
+                    return float('-inf')
+        else:            
+            return float('-inf')
 
 class JKGame:
     """ Overall class to manage game aspects """
@@ -172,7 +189,7 @@ class JKGame:
         self.clock = pygame.time.Clock()
 
         # self.fps = int(os.environ.get("fps"))
-        self.fps = 600
+        self.fps = 6000
 
         self.bg_color = (0, 0, 0)
 
@@ -430,10 +447,10 @@ def train(game_window):
         3: 'left+space',
     }
     agent = DDQN()
+    agent.load_model()
+    agent.load_best_reward()
     env = JKGame(max_step=1000) if game_window else None
     num_episode = 100000
-
-    previous_reward = -500000  # Initialize previous reward
 
     for i in range(num_episode):
         done, state = env.reset() if game_window else (False, None)
@@ -450,19 +467,21 @@ def train(game_window):
             state = next_state
 
         # Print episode number and current reward
-        print(f'Episode: {i}, Current Reward: {running_reward}')
+        print(f'Episode: {i}, Current Reward: {running_reward}, Best Reward: {agent.best_reward}')
 
-        # Check if the current reward is closer to 0 than the previous reward
-        if abs(running_reward) < abs(previous_reward):
-            agent.eval_net.save()  # Save the model if the reward is closer to 0
-            print(f'Saving model... Previous Reward: {previous_reward}, Current Reward: {running_reward}')
-            previous_reward = running_reward  # Update previous reward
+        # Check if the current reward is better than the saved best reward
+        if running_reward > agent.best_reward:
+            agent.best_reward = running_reward
+            print(f'Saving model... Previous Reward: {agent.best_reward}, Current Reward: {running_reward}')
+            agent.save_best_reward()  # Save the best reward
+            agent.eval_net.save()
+        else:
+            print("Not saving the model. Current reward is not better than the best reward.")
 
+
+
+    
 
 if __name__ == "__main__":
-    # Game = JKGame()
-    #Game.running()
     agent = DDQN()
-    agent.load_model()
     train(game_window=True)  # Set game_window to True to display the game window during training
-    agent.eval_net.save()
