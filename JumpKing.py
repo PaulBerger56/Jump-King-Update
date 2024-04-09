@@ -171,7 +171,8 @@ class JKGame:
 
         self.clock = pygame.time.Clock()
 
-        self.fps = int(os.environ.get("fps"))
+        # self.fps = int(os.environ.get("fps"))
+        self.fps = 600
 
         self.bg_color = (0, 0, 0)
 
