@@ -143,10 +143,6 @@ class DDQN(object):
         loss.backward()
         self.optimizer.step()
 
-        # if r > self.best_reward:  # Check if current reward is better than the best reward
-        #     self.best_reward = r
-        #     self.eval_net.save()  # Save the model parameters
-
     def load_model(self, file_name='model.pth'):
         model_folder_path = '.\\model'
         file_name = os.path.join(model_folder_path, file_name)
@@ -189,7 +185,7 @@ class JKGame:
         self.clock = pygame.time.Clock()
 
         # self.fps = int(os.environ.get("fps"))
-        self.fps = 6000
+        self.fps = 600000
 
         self.bg_color = (0, 0, 0)
 
@@ -447,8 +443,7 @@ def train(game_window):
         3: 'left+space',
     }
     agent = DDQN()
-    agent.load_model()
-    agent.load_best_reward()
+    agent.load_model()    
     env = JKGame(max_step=1000) if game_window else None
     num_episode = 100000
 
