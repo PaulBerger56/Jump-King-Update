@@ -89,6 +89,8 @@ class DDQN(object):
 
         self.target_net.load_state_dict(self.eval_net.state_dict())
 
+        self.prev_reward = float('-inf')  # Initialize previous reward to negative infinity
+
     def memory_store(self, s0, a0, r, s1, sign):
         transition = np.concatenate((s0, [a0, r], s1, [sign]))
         index = self.memory_counter % self.memory_size
@@ -145,8 +147,11 @@ class DDQN(object):
         # backward
         self.optimizer.zero_grad()
         loss.backward()
-        self.optimizer.step()        
-    
+        self.optimizer.step()
+
+        if r > self.prev_reward:  # Check if current reward is closer to 0 than previous reward
+            self.prev_reward = r
+            self.eval_net.save()  # Save the model parameters        
 
     def load_model(self, file_name='model.pth'):
         model_folder_path = '.\\model'
@@ -424,8 +429,10 @@ def train(game_window):
         3: 'left+space',
     }
     agent = DDQN()
-    env = JKGame(max_step=1000) if game_window else None    
+    env = JKGame(max_step=1000) if game_window else None
     num_episode = 100000
+
+    previous_reward = -500000  # Initialize previous reward
 
     for i in range(num_episode):
         done, state = env.reset() if game_window else (False, None)
@@ -437,11 +444,19 @@ def train(game_window):
             next_state, reward, done = env.step(action) if game_window else ([0, 0, 0, 0], 0, False)
 
             running_reward += reward
-            agent.eval_net.save()
             sign = 1 if done else 0
             agent.train(state, action, reward, next_state, sign)
             state = next_state
-        print(f'episode: {i}, reward: {running_reward}')
+
+        # Print episode number and current reward
+        print(f'Episode: {i}, Current Reward: {running_reward}')
+
+        # Check if the current reward is closer to 0 than the previous reward
+        if abs(running_reward) < abs(previous_reward):
+            agent.eval_net.save()  # Save the model if the reward is closer to 0
+            print(f'Saving model... Previous Reward: {previous_reward}, Current Reward: {running_reward}')
+            previous_reward = running_reward  # Update previous reward
+
 
 if __name__ == "__main__":
     # Game = JKGame()
@@ -450,4 +465,3 @@ if __name__ == "__main__":
     agent.load_model()
     train(game_window=True)  # Set game_window to True to display the game window during training
     agent.eval_net.save()
-
