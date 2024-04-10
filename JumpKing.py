@@ -44,7 +44,16 @@ class NETWORK(torch.nn.Module):
 
         self.final = torch.nn.Linear(hidden_dim, output_dim)
 
-    def save(self, file_name='model.pth'):
+    def save_best_model(self, file_name='model.pth'):
+        model_folder_path = '.\\model'
+        if not os.path.exists(model_folder_path):
+            os.makedirs(model_folder_path)
+
+        file_name = os.path.join(model_folder_path, file_name)
+        with open(file_name, 'wb') as f:
+            torch.save(self.state_dict(), f)
+            
+    def save_overall_model(self, file_name='overall_model.pth'):
         model_folder_path = '.\\model'
         if not os.path.exists(model_folder_path):
             os.makedirs(model_folder_path)
@@ -89,7 +98,7 @@ class DDQN(object):
 
         self.best_reward = self.load_best_reward()
         # Comment out code above and uncomment code below when starting a brand new project
-        # self.best_reward = -500000  
+        # self.best_reward = -50000  
         
 
     def memory_store(self, s0, a0, r, s1, sign):
@@ -108,8 +117,7 @@ class DDQN(object):
 
         return action
 
-    # Remaining methods remain unchanged
-
+   
     def train(self, s0, a0, r, s1, sign):
         if sign == 1:
             if self.episode_counter % 2 == 0:
@@ -271,7 +279,7 @@ class JKGame:
                     self.visited[(self.king.levels.current_level, self.king.y)] = self.visited.get((self.king.levels.current_level, self.king.y), 0) + 1
                     if self.visited[(self.king.levels.current_level, self.king.y)] < self.visited[(old_level, old_y)]:
                         self.visited[(self.king.levels.current_level, self.king.y)] = self.visited[(old_level, old_y)] + 1
-                    reward_factor = 0.1
+                    reward_factor = 0.01
                     reward = reward_factor * (-self.visited[(self.king.levels.current_level, self.king.y)])
                 ####################################################################################################
 
@@ -447,7 +455,7 @@ def train(game_window):
     agent = DDQN()
     # Comment out the code below when starting a brand new
     agent.load_model()    
-    env = JKGame(max_step=1000) if game_window else None
+    env = JKGame(max_step=3000) if game_window else None
     num_episode = 100000
 
     for i in range(num_episode):
@@ -466,13 +474,14 @@ def train(game_window):
 
         # Print episode number and current reward
         print(f'Episode: {i}, Current Reward: {running_reward}, Best Reward: {agent.best_reward}')
+        agent.eval_net.save_overall_model()
 
         # Check if the current reward is better than the saved best reward
         if running_reward > agent.best_reward:
             agent.best_reward = running_reward
             print(f'Saving model... Previous Reward: {agent.best_reward}, Current Reward: {running_reward}')
             agent.save_best_reward()  # Save the best reward
-            agent.eval_net.save()
+            agent.eval_net.save_best_model()
         else:
             print("Not saving the model. Current reward is not better than the best reward.\n")
 
