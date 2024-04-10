@@ -76,7 +76,7 @@ class NETWORK(torch.nn.Module):
         return x
 
 class DDQN(object):
-    def __init__(self):
+    def __init__(self, load_best_reward):
         self.target_net = NETWORK(4, 4, 32)
         self.eval_net = NETWORK(4, 4, 32)
 
@@ -96,9 +96,10 @@ class DDQN(object):
 
         self.target_net.load_state_dict(self.eval_net.state_dict())
 
-        # self.best_reward = self.load_best_reward()
-        # Comment out code above and uncomment code below when starting a brand new project
-        self.best_reward = -50000  
+        if load_best_reward:
+            self.best_reward = self.load_best_reward()
+        else:
+            self.best_reward = -50000  
         
 
     def memory_store(self, s0, a0, r, s1, sign):
@@ -271,25 +272,38 @@ class JKGame:
                 reward = 0
                 self.step_counter += 1
                 state = [self.king.levels.current_level, self.king.x, self.king.y, self.king.jumpCount]
+                old_level = state[0]
+                old_y = state[2]
+
+                # Calculate change in level and vertical distance
+                level_change = self.king.levels.current_level - old_level
+                vertical_distance = old_y - self.king.y  # Positive if moving upwards, negative otherwise
+
                 ##################################################################################################
                 # Define the reward from environment                                                             #
                 ##################################################################################################
-                if self.king.levels.current_level > old_level or (self.king.levels.current_level == old_level and self.king.y < old_y):
-                    if(self.king.levels.current_level > old_level):
-                        reward = reward + 100
-                    vertical_distance = abs(self.king.y - old_y)
-                    # Assign reward based on vertical distance
-                    reward =  reward + vertical_distance * 0.1  # Adjust the multiplier as needed
+                if level_change > 0 or (level_change == 0 and vertical_distance > 0):
+                    # Reached a higher level or moved up on the same level
+                    reward += 100  # Reward for reaching a higher level
+                    reward += vertical_distance * 0.3  # Reward for moving upwards
                 else:
-                    self.visited[(self.king.levels.current_level, self.king.y)] = self.visited.get((self.king.levels.current_level, self.king.y), 0) + 1
-                    if self.visited[(self.king.levels.current_level, self.king.y)] < self.visited[(old_level, old_y)]:
-                        self.visited[(self.king.levels.current_level, self.king.y)] = self.visited[(old_level, old_y)] + 1
-                    reward_factor = 0.01
-                    reward = reward_factor * (-self.visited[(self.king.levels.current_level, self.king.y)])
-                ####################################################################################################
+                    # Failed to progress upwards
+                    reward -= 1  # Penalize for failing to progress upwards
+                ##################################################################################################
 
+                # Update visited states
+                visited_key = (self.king.levels.current_level, self.king.y)
+                self.visited[visited_key] = self.visited.get(visited_key, 0) + 1
+
+                # Calculate reward factor based on visited states
+                reward_factor = 0.001
+                reward -= reward_factor * self.visited[visited_key]
+
+                # Check if the episode is done
                 done = True if self.step_counter > self.max_step else False
+
                 return state, reward, done
+
 
     def running(self):
         """
@@ -450,27 +464,28 @@ class JKGame:
 
             pygame.mixer.Channel(channel).set_volume(float(os.environ.get("volume")))
 
-def train(game_window):
+def train(load_model, load_best_reward):
     action_dict = {
         0: 'right',
         1: 'left',
         2: 'right+space',
         3: 'left+space',
     }
-    agent = DDQN()
-    # Comment out the code below when starting a brand new
-    # agent.load_model()    
-    env = JKGame(max_step=3000) if game_window else None
+    agent = DDQN(load_best_reward=load_best_reward)
+    
+    if load_model:
+        agent.load_model()    
+    env = JKGame(max_step=3000) 
     num_episode = 100000
 
     for i in range(num_episode):
-        done, state = env.reset() if game_window else (False, None)
+        done, state = env.reset() 
 
         max_reward = 0
         running_reward = 0
         while not done:
             action = agent.select_action(state)
-            next_state, reward, done = env.step(action) if game_window else ([0, 0, 0, 0], 0, False)
+            next_state, reward, done = env.step(action) 
 
             running_reward += reward
             sign = 1 if done else 0
@@ -485,15 +500,13 @@ def train(game_window):
         if running_reward > agent.best_reward:
             agent.best_reward = running_reward
             print(f'Saving model... Previous Reward: {agent.best_reward}, Current Reward: {running_reward}')
+            print('')
             agent.save_best_reward()  # Save the best reward
             agent.eval_net.save_best_model()
         else:
-            print("Not saving the model. Current reward is not better than the best reward.\n")
+            print("Not saving the model. Current reward is not better than the best reward.\n")    
 
-
-
-    
-
-if __name__ == "__main__":
-    agent = DDQN()
-    train(game_window=True)  # Set game_window to True to display the game window during training
+if __name__ == "__main__":    
+    # Set both to True to run from previous models.
+    # If you want to start new files, delete model.pth and best_reward.pkl and set both to False
+    train(load_model=True, load_best_reward=True) 
