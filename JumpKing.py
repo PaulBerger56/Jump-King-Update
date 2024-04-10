@@ -77,6 +77,8 @@ class NETWORK(torch.nn.Module):
 
 class DDQN(object):
     def __init__(self, load_best_reward):
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        
         self.target_net = NETWORK(4, 4, 32)
         self.eval_net = NETWORK(4, 4, 32)
 
