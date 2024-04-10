@@ -88,6 +88,8 @@ class DDQN(object):
         self.target_net.load_state_dict(self.eval_net.state_dict())
 
         self.best_reward = self.load_best_reward()
+        # Comment out code above and uncomment code below when starting a brand new project
+        # self.best_reward = -500000  
         
 
     def memory_store(self, s0, a0, r, s1, sign):
@@ -185,7 +187,7 @@ class JKGame:
         self.clock = pygame.time.Clock()
 
         # self.fps = int(os.environ.get("fps"))
-        self.fps = 600000
+        self.fps = 99999999
 
         self.bg_color = (0, 0, 0)
 
@@ -269,8 +271,8 @@ class JKGame:
                     self.visited[(self.king.levels.current_level, self.king.y)] = self.visited.get((self.king.levels.current_level, self.king.y), 0) + 1
                     if self.visited[(self.king.levels.current_level, self.king.y)] < self.visited[(old_level, old_y)]:
                         self.visited[(self.king.levels.current_level, self.king.y)] = self.visited[(old_level, old_y)] + 1
-
-                    reward = -self.visited[(self.king.levels.current_level, self.king.y)]
+                    reward_factor = 0.1
+                    reward = reward_factor * (-self.visited[(self.king.levels.current_level, self.king.y)])
                 ####################################################################################################
 
                 done = True if self.step_counter > self.max_step else False
@@ -443,6 +445,7 @@ def train(game_window):
         3: 'left+space',
     }
     agent = DDQN()
+    # Comment out the code below when starting a brand new
     agent.load_model()    
     env = JKGame(max_step=1000) if game_window else None
     num_episode = 100000
@@ -471,7 +474,7 @@ def train(game_window):
             agent.save_best_reward()  # Save the best reward
             agent.eval_net.save()
         else:
-            print("Not saving the model. Current reward is not better than the best reward.")
+            print("Not saving the model. Current reward is not better than the best reward.\n")
 
 
 
