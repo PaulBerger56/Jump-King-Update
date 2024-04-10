@@ -80,7 +80,7 @@ class DDQN(object):
         self.target_net = NETWORK(4, 4, 32)
         self.eval_net = NETWORK(4, 4, 32)
 
-        self.optimizer = torch.optim.Adam(self.eval_net.parameters(), lr=0.0001)
+        self.optimizer = torch.optim.Adam(self.eval_net.parameters(), lr=0.00001)
         self.criterion = nn.MSELoss()
 
         self.memory_counter = 0
@@ -96,9 +96,9 @@ class DDQN(object):
 
         self.target_net.load_state_dict(self.eval_net.state_dict())
 
-        self.best_reward = self.load_best_reward()
+        # self.best_reward = self.load_best_reward()
         # Comment out code above and uncomment code below when starting a brand new project
-        # self.best_reward = -50000  
+        self.best_reward = -50000  
         
 
     def memory_store(self, s0, a0, r, s1, sign):
@@ -268,13 +268,18 @@ class JKGame:
 
 
             if self.move_available():
+                reward = 0
                 self.step_counter += 1
                 state = [self.king.levels.current_level, self.king.x, self.king.y, self.king.jumpCount]
                 ##################################################################################################
                 # Define the reward from environment                                                             #
                 ##################################################################################################
                 if self.king.levels.current_level > old_level or (self.king.levels.current_level == old_level and self.king.y < old_y):
-                    reward = 0
+                    if(self.king.levels.current_level > old_level):
+                        reward = reward + 100
+                    vertical_distance = abs(self.king.y - old_y)
+                    # Assign reward based on vertical distance
+                    reward =  reward + vertical_distance * 0.1  # Adjust the multiplier as needed
                 else:
                     self.visited[(self.king.levels.current_level, self.king.y)] = self.visited.get((self.king.levels.current_level, self.king.y), 0) + 1
                     if self.visited[(self.king.levels.current_level, self.king.y)] < self.visited[(old_level, old_y)]:
@@ -454,7 +459,7 @@ def train(game_window):
     }
     agent = DDQN()
     # Comment out the code below when starting a brand new
-    agent.load_model()    
+    # agent.load_model()    
     env = JKGame(max_step=3000) if game_window else None
     num_episode = 100000
 
