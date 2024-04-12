@@ -463,8 +463,10 @@ class JKGame:
                     pygame.mixer.Channel(channel).set_volume(0)
 
                     continue
-
-            pygame.mixer.Channel(channel).set_volume(float(os.environ.get("volume")))
+            
+            # Uncomment this out to turn audio on and comment out the line below it
+            # pygame.mixer.Channel(channel).set_volume(float(os.environ.get("volume")))
+            pygame.mixer.Channel(channel).set_volume(0)
 
 def train(load_model, load_best_reward):
     action_dict = {
